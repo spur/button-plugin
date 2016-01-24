@@ -2,7 +2,7 @@
   "name": "spur-button-plugin",
   "version": "0.1.0",
   "description": "Spur plugin to add button features to a React component.",
-  "main": "lib/button-plugin.js",
+  "main": "src/button-plugin.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/spur/button-plugin.git"

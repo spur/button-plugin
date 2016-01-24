@@ -1,19 +1,22 @@
 var SpurEvents = require('spur-events');
+var addListener = SpurEvents.addListener;
+var removeListener = SpurEvents.removeListener;
 var interationLock = require('spur-interaction-lock');
 
-var current;
+var current = {};
 
-interationLock.on('lock', function (lockNode) {
-  if (!current) { return; }
-
-  while (lockNode !== null) {
-    if (lockNode === current) { current.cancel(); }
-    lockNode = lockNode.parentNode;
+function onLock(lockNode) {
+  for (var pointerId in current) {
+    var DOMNode = current[pointerId].DOMNode;
+    if (DOMNode === lockNode) { return; }
+    while (lockNode !== null) {
+      if (lockNode === DOMNode) { current[pointerId].cancel(); }
+      lockNode = lockNode.parentNode;
+    }
   }
-});
+}
 
 const LONG_TAP_TIMEOUT = 400;
-
 
 function ButtonPlugin(component) {
   this.component = component;
@@ -46,18 +49,19 @@ ButtonPlugin.prototype.setEnable = function(enable) {
 };
 
 ButtonPlugin.prototype.reset = function() {
-  if (current === this) { current = null };
+  if (current[this.pointerId] === this) { current[this.pointerId] = null };
   if (this.lockId) {
     interationLock.releaseLock(this.lockId);
     this.lockId = null;
   }
+  interationLock.removeListener('lock', onLock);
   window.clearTimeout(this.longTapTimeout);
   removeListener(document, 'pointermove', this.onPointerMove, { context: this });
-  removeListener(document, 'pointerend', this.onPointerEnd, { context: this });
+  removeListener(document, 'pointerup', this.onPointerUp, { context: this });
 };
 
 ButtonPlugin.prototype.cancel = function() {
-  if (current === this) {
+  if (current[this.pointerId] === this) {
     this.cancelled = true;
     this.release(true);
   }
@@ -75,41 +79,46 @@ ButtonPlugin.prototype.onPointerMove = function(e) {
 };
 
 ButtonPlugin.prototype.onPointerDown = function(e) {
-  if (current || !this.enable || e.originalEvent.which === 3) { return; }
-  current = this;
+  if (current[e.pointerId] || !this.enable || e.originalEvent.which === 3) { return; }
+  current[e.pointerId] = this;
+  this.pointerId = e.pointerId;
+  interationLock.on('lock', onLock);
   this.cancelled = false;
   var startTap = {
-    x: tap.x,
-    y: tap.y
+    x: e.clientX,
+    y: e.clientY
   }
 
   this.boundingBox = this.DOMNode.getBoundingClientRect();
   this.press(startTap);
 
+  this.longTapped = false;
   if (this.component.onLongTap || this.component.props.onLongTap) {
     window.clearTimeout(this.longTapTimeout);
     var self = this;
     this.longTapTimeout = window.setTimeout(function () {
-      self.release();
-      self.reset();
-      if (this.lockId = interationLock.requestLockOn(self.DOMNode)){
+      if (self.lockId = interationLock.requestLockOn(self.DOMNode)){
         self.longTap(startTap);
+        self.longTapped = true;
       }
     }, LONG_TAP_TIMEOUT);
   }
 
   addListener(document, 'pointermove', this.onPointerMove, { context: this });
-  addListener(document, 'pointerend', this.onPointerEnd, { context: this });
+  addListener(document, 'pointerup', this.onPointerUp, { context: this });
 };
 
-ButtonPlugin.prototype.onPointerEnd = function() {
+ButtonPlugin.prototype.onPointerUp = function() {
   if (this.cancelled) {
     return;
   }
 
   this.reset();
   this.release();
-  this.tap();
+
+  if (!this.longTapped) {
+    this.tap();
+  }
 };
 
 ButtonPlugin.prototype.componentDidMount = function(DOMNode) {
