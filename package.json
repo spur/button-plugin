@@ -7,9 +7,6 @@
     "type": "git",
     "url": "git+https://github.com/spur/button-plugin.git"
   },
-  "scripts": {
-    "prepublish": "./node_modules/.bin/babel -d lib src/  --presets es2015"
-  },
   "keywords": [
     "react",
     "spur",
@@ -23,12 +20,8 @@
     "url": "https://github.com/spur/button-plugin/issues"
   },
   "homepage": "https://github.com/spur/button-plugin#readme",
-  "devDependencies": {
-    "babel-cli": "^6.3.15",
-    "babel-preset-es2015": "^6.3.13"
-  },
   "dependencies": {
-    "spur-tap-lock": "^0.1.1",
-    "spur-taps": "^0.1.0"
+    "spur-events": "^0.1.0",
+    "spur-interaction-lock": "git+https://github.com/spur/interaction-lock.git"
   }
 }

@@ -1,128 +1,126 @@
-import { tapEvents, getTap } from 'spur-taps';
-import tapLock from 'spur-tap-lock';
+var SpurEvents = require('spur-events');
+var interationLock = require('spur-interaction-lock');
 
-let current;
+var current;
 
-tapLock.on('handleTaken', function () {
-  if (current) {
-    current.cancel();
-    current = null;
+interationLock.on('lock', function (lockNode) {
+  if (!current) { return; }
+
+  while (lockNode !== null) {
+    if (lockNode === current) { current.cancel(); }
+    lockNode = lockNode.parentNode;
   }
 });
 
 const LONG_TAP_TIMEOUT = 400;
 
 
-class ButtonPlugin {
-  constructor(enable=true) {
-    this.enable = enable;
-  }
-
-  press(coords) {
-    if (this.reactComponent.onPress) { this.reactComponent.onPress(coords); }
-    if (this.reactComponent.props.onPress) { this.reactComponent.props.onPress(coords); }
-  }
-
-  release(cancelled) {
-    if (this.reactComponent.onRelease) { this.reactComponent.onRelease(cancelled); }
-    if (this.reactComponent.props.onRelease) { this.reactComponent.props.onRelease(cancelled); }
-  }
-
-  tap() {
-    if (this.reactComponent.onTap) { this.reactComponent.onTap(); }
-    if (this.reactComponent.props.onTap) { this.reactComponent.props.onTap(); }
-  }
-
-  longTap(coords) {
-    if (this.reactComponent.onLongTap) { this.reactComponent.onLongTap(); }
-    if (this.reactComponent.props.onLongTap) { this.reactComponent.props.onLongTap(); }
-  }
-
-  setEnable(enable) {
-    this.enable = enable;
-  }
-
-  reset() {
-    if (current === this) { current = null };
-    window.clearTimeout(this.longTapTimeout);
-    document.body.removeEventListener(tapEvents.move, this.tapMoveBound);
-    this.tapMoveBound = null;
-    document.body.removeEventListener(tapEvents.end, this.tapEndBound);
-    this.tapEndBound = null;
-  }
-
-  cancel() {
-    if (current === this) {
-      this.cancelled = true;
-      this.release(true);
-    }
-
-    this.reset();
-  }
-
-  onDOMTapMove(e) {
-    let tap = getTap(e);
-    if (tap.x < this.boundingBox.left ||
-      tap.x > this.boundingBox.left + this.boundingBox.width ||
-      tap.y < this.boundingBox.top ||
-      tap.y > this.boundingBox.top + this.boundingBox.height) {
-      this.cancel();
-    }
-  }
-
-  onDOMTapStart(e) {
-    let tap = getTap(e);
-    if (current || !this.enable || tap.count > 1 || e.which === 3) { return; }
-    current = this;
-    this.cancelled = false;
-    let startTap = {
-      x: tap.x,
-      y: tap.y
-    }
-
-    this.boundingBox = this.DOMNode.getBoundingClientRect();
-    this.press(startTap);
-
-    if (this.reactComponent.onLongTap || this.reactComponent.props.onLongTap) {
-      window.clearTimeout(this.longTapTimeout);
-      this.longTapTimeout = window.setTimeout(() => {
-        this.release();
-        this.reset();
-        if (tapLock.requestHandle(this)){
-          this.longTap(startTap);
-        }
-      }, LONG_TAP_TIMEOUT);
-    }
-
-    this.tapMoveBound = this.onDOMTapMove.bind(this);
-    document.body.addEventListener(tapEvents.move, this.tapMoveBound);
-    this.tapEndBound = this.onDOMTapEnd.bind(this);
-    document.body.addEventListener(tapEvents.end, this.tapEndBound);
-  }
-
-  onDOMTapEnd() {
-    if (this.cancelled) {
-      return;
-    }
-
-    this.reset();
-    this.release();
-    this.tap();
-  }
-
-  setAttachedComponent(reactComponent, DOMNode) {
-    this.reactComponent = reactComponent;
-    this.DOMNode = DOMNode;
-    this.tapStartBound = this.onDOMTapStart.bind(this);
-    this.DOMNode.addEventListener(tapEvents.start, this.tapStartBound);
-  }
-
-  tearDown() {
-    this.DOMNode.removeEventListener(tapEvents.start, this.tapStartBound);
-    this.tapStartBound = null;
-    this.DOMNode = null;
-    this.reset();
-  }
+function ButtonPlugin(component) {
+  this.component = component;
+  this.enable = true;
+  this.lockId = null;
 }
 
-export default ButtonPlugin;
+ButtonPlugin.prototype.press = function(coords) {
+  if (this.component.onPress) { this.component.onPress(coords); }
+  if (this.component.props.onPress) { this.component.props.onPress(coords); }
+};
+
+ButtonPlugin.prototype.release = function(cancelled) {
+  if (this.component.onRelease) { this.component.onRelease(cancelled); }
+  if (this.component.props.onRelease) { this.component.props.onRelease(cancelled); }
+};
+
+ButtonPlugin.prototype.tap = function() {
+  if (this.component.onTap) { this.component.onTap(); }
+  if (this.component.props.onTap) { this.component.props.onTap(); }
+};
+
+ButtonPlugin.prototype.longTap = function(coords) {
+  if (this.component.onLongTap) { this.component.onLongTap(); }
+  if (this.component.props.onLongTap) { this.component.props.onLongTap(); }
+};
+
+ButtonPlugin.prototype.setEnable = function(enable) {
+  this.enable = enable;
+};
+
+ButtonPlugin.prototype.reset = function() {
+  if (current === this) { current = null };
+  if (this.lockId) {
+    interationLock.releaseLock(this.lockId);
+    this.lockId = null;
+  }
+  window.clearTimeout(this.longTapTimeout);
+  removeListener(document, 'pointermove', this.onPointerMove, { context: this });
+  removeListener(document, 'pointerend', this.onPointerEnd, { context: this });
+};
+
+ButtonPlugin.prototype.cancel = function() {
+  if (current === this) {
+    this.cancelled = true;
+    this.release(true);
+  }
+
+  this.reset();
+};
+
+ButtonPlugin.prototype.onPointerMove = function(e) {
+  if (e.clientX < this.boundingBox.left ||
+    e.clientX > this.boundingBox.left + this.boundingBox.width ||
+    e.clientY < this.boundingBox.top ||
+    e.clientY > this.boundingBox.top + this.boundingBox.height) {
+    this.cancel();
+  }
+};
+
+ButtonPlugin.prototype.onPointerDown = function(e) {
+  if (current || !this.enable || e.originalEvent.which === 3) { return; }
+  current = this;
+  this.cancelled = false;
+  var startTap = {
+    x: tap.x,
+    y: tap.y
+  }
+
+  this.boundingBox = this.DOMNode.getBoundingClientRect();
+  this.press(startTap);
+
+  if (this.component.onLongTap || this.component.props.onLongTap) {
+    window.clearTimeout(this.longTapTimeout);
+    var self = this;
+    this.longTapTimeout = window.setTimeout(function () {
+      self.release();
+      self.reset();
+      if (this.lockId = interationLock.requestLockOn(self.DOMNode)){
+        self.longTap(startTap);
+      }
+    }, LONG_TAP_TIMEOUT);
+  }
+
+  addListener(document, 'pointermove', this.onPointerMove, { context: this });
+  addListener(document, 'pointerend', this.onPointerEnd, { context: this });
+};
+
+ButtonPlugin.prototype.onPointerEnd = function() {
+  if (this.cancelled) {
+    return;
+  }
+
+  this.reset();
+  this.release();
+  this.tap();
+};
+
+ButtonPlugin.prototype.componentDidMount = function(DOMNode) {
+  this.DOMNode = DOMNode;
+  addListener(this.DOMNode, 'pointerdown', this.onPointerDown, { context: this });
+};
+
+ButtonPlugin.prototype.componentWillUnmount = function() {
+  removeListener(this.DOMNode, 'pointerdown', this.onPointerDown, { context: this });
+  this.reset();
+  this.DOMNode = null;
+}
+
+module.exports = ButtonPlugin;
