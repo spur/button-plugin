@@ -49,7 +49,7 @@ ButtonPlugin.prototype.setEnable = function(enable) {
 };
 
 ButtonPlugin.prototype.reset = function() {
-  if (current[this.pointerId] === this) { current[this.pointerId] = null };
+  if (current[this.pointerId] === this) { delete current[this.pointerId]; };
   if (this.lockId) {
     interationLock.releaseLock(this.lockId);
     this.lockId = null;
