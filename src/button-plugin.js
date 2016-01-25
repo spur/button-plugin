@@ -8,7 +8,6 @@ var current = {};
 function onLock(lockNode) {
   for (var pointerId in current) {
     var DOMNode = current[pointerId].DOMNode;
-    if (DOMNode === lockNode) { return; }
     while (lockNode !== null) {
       if (lockNode === DOMNode) { current[pointerId].cancel(); }
       lockNode = lockNode.parentNode;
@@ -97,6 +96,7 @@ ButtonPlugin.prototype.onPointerDown = function(e) {
     window.clearTimeout(this.longTapTimeout);
     var self = this;
     this.longTapTimeout = window.setTimeout(function () {
+      interationLock.removeListener('lock', onLock);
       if (self.lockId = interationLock.requestLockOn(self.DOMNode)){
         self.longTap(startTap);
         self.longTapped = true;
