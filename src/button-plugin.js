@@ -79,7 +79,7 @@ ButtonPlugin.prototype.onPointerMove = function(e) {
 };
 
 ButtonPlugin.prototype.onPointerDown = function(e) {
-  if (current[e.pointerId] || !this.enable || e.originalEvent.which === 3) { return; }
+  if (current[e.pointerId] || !this.enable || e.originalEvent.which === 3 || interationLock.isLocked(this.DOMNode)) { return; }
   current[e.pointerId] = this;
   this.pointerId = e.pointerId;
   interationLock.on('lock', onLock);
