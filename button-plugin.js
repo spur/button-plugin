@@ -25,22 +25,22 @@ function ButtonPlugin(component) {
 
 ButtonPlugin.prototype.press = function(coords) {
   if (this.component.onPress) { this.component.onPress(coords); }
-  if (this.component.props.onPress) { this.component.props.onPress(coords); }
+  if (this.component.props.onPress) { this.component.props.onPress(this.component, coords); }
 };
 
 ButtonPlugin.prototype.release = function(cancelled) {
   if (this.component.onRelease) { this.component.onRelease(cancelled); }
-  if (this.component.props.onRelease) { this.component.props.onRelease(cancelled); }
+  if (this.component.props.onRelease) { this.component.props.onRelease(this.component, cancelled); }
 };
 
 ButtonPlugin.prototype.tap = function() {
   if (this.component.onTap) { this.component.onTap(); }
-  if (this.component.props.onTap) { this.component.props.onTap(); }
+  if (this.component.props.onTap) { this.component.props.onTap(this.component); }
 };
 
 ButtonPlugin.prototype.longTap = function(coords) {
   if (this.component.onLongTap) { this.component.onLongTap(); }
-  if (this.component.props.onLongTap) { this.component.props.onLongTap(); }
+  if (this.component.props.onLongTap) { this.component.props.onLongTap(this.component); }
 };
 
 ButtonPlugin.prototype.setEnable = function(enable) {
