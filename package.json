@@ -22,6 +22,6 @@
   "homepage": "https://github.com/spur/button-plugin#readme",
   "dependencies": {
     "spur-events": "^0.1.0",
-    "spur-interaction-lock": "git+https://github.com/spur/interaction-lock.git"
+    "spur-interaction-lock": "github:spur/interaction-lock#master"
   }
 }
