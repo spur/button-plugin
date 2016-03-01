@@ -23,6 +23,8 @@ function ButtonPlugin(component) {
   this.lockId = null;
 }
 
+ButtonPlugin.plugName = 'button';
+
 ButtonPlugin.prototype.press = function(coords) {
   if (this.component.onPress) { this.component.onPress(coords); }
   if (this.component.props.onPress) { this.component.props.onPress(this.component, coords); }
