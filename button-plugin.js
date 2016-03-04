@@ -40,9 +40,9 @@ ButtonPlugin.prototype.tap = function () {
 	if (this.component.props.onTap) { this.component.props.onTap(this.component); }
 };
 
-ButtonPlugin.prototype.longTap = function () {
-	if (this.component.onLongTap) { this.component.onLongTap(); }
-	if (this.component.props.onLongTap) { this.component.props.onLongTap(this.component); }
+ButtonPlugin.prototype.longTap = function (coords) {
+	if (this.component.onLongTap) { this.component.onLongTap(coords); }
+	if (this.component.props.onLongTap) { this.component.props.onLongTap(this.component, coords); }
 };
 
 ButtonPlugin.prototype.setEnable = function (enable) {
