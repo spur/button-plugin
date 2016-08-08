@@ -5,6 +5,10 @@ var interationLock = require('spur-interaction-lock');
 
 var current = {};
 
+addListener(window, 'pointerup', function (e) {
+	delete current[e.pointerId];
+});
+
 function onLock(lockNode) {
 	for (var pointerId in current) {
 		var DOMNode = current[pointerId].DOMNode;
@@ -15,12 +19,24 @@ function onLock(lockNode) {
 	}
 }
 
-const LONG_TAP_TIMEOUT = 400;
+function onContainerLock(lockNode) {
+	for (var pointerId in current) {
+		var DOMNode = current[pointerId].DOMNode;
+		while (DOMNode !== null) {
+			if (lockNode === DOMNode) { current[pointerId].cancel(); }
+			DOMNode = DOMNode.parentNode;
+		}
+	}
+}
+
+var LONG_TAP_TIMEOUT = 700;
+var DOUBLE_TAP_TIMEOUT = 300;
 
 function ButtonPlugin(component) {
 	this.component = component;
 	this.enable = true;
 	this.lockId = null;
+	this.lastTap = 0;
 }
 
 ButtonPlugin.plugName = 'button';
@@ -35,9 +51,16 @@ ButtonPlugin.prototype.release = function (cancelled) {
 	if (this.component.props.onRelease) { this.component.props.onRelease(this.component, cancelled); }
 };
 
-ButtonPlugin.prototype.tap = function () {
-	if (this.component.onTap) { this.component.onTap(); }
-	if (this.component.props.onTap) { this.component.props.onTap(this.component); }
+ButtonPlugin.prototype.tap = function (e) {
+	if (this.component.onTap) { this.component.onTap(e); }
+	if (this.component.props.onTap) { this.component.props.onTap(this.component, e); }
+	this.lastTap = Date.now();
+};
+
+ButtonPlugin.prototype.doubleTap = function (e) {
+	if (this.component.onDoubleTap) { this.component.onDoubleTap(e); }
+	if (this.component.props.onDoubleTap) { this.component.props.onDoubleTap(this.component, e); }
+	this.lastTap = 0;
 };
 
 ButtonPlugin.prototype.longTap = function (coords) {
@@ -56,6 +79,7 @@ ButtonPlugin.prototype.reset = function () {
 		this.lockId = null;
 	}
 	interationLock.removeListener('lock', onLock);
+	interationLock.removeListener('container-lock', onContainerLock);
 	window.clearTimeout(this.longTapTimeout);
 	removeListener(document, 'pointermove', this.onPointerMove, { context: this });
 	removeListener(document, 'pointerup', this.onPointerUp, { context: this });
@@ -86,13 +110,14 @@ ButtonPlugin.prototype.onPointerDown = function (e) {
 	current[e.pointerId] = this;
 	this.pointerId = e.pointerId;
 	interationLock.on('lock', onLock);
+	interationLock.on('container-lock', onContainerLock);
 	this.cancelled = false;
 	var startTap = {
 		x: e.clientX,
 		y: e.clientY
 	};
 
-	const target = e.target;
+	var target = e.target;
 
 	this.boundingBox = this.DOMNode.getBoundingClientRect();
 	this.press(startTap);
@@ -103,6 +128,7 @@ ButtonPlugin.prototype.onPointerDown = function (e) {
 		var self = this;
 		this.longTapTimeout = window.setTimeout(function () {
 			interationLock.removeListener('lock', onLock);
+			interationLock.removeListener('container-lock', onContainerLock);
 			self.lockId = interationLock.requestLockOn(target);
 			if (self.lockId) {
 				self.longTap(startTap);
@@ -115,7 +141,7 @@ ButtonPlugin.prototype.onPointerDown = function (e) {
 	addListener(document, 'pointerup', this.onPointerUp, { context: this });
 };
 
-ButtonPlugin.prototype.onPointerUp = function () {
+ButtonPlugin.prototype.onPointerUp = function (e) {
 	if (this.cancelled) {
 		return;
 	}
@@ -124,7 +150,12 @@ ButtonPlugin.prototype.onPointerUp = function () {
 	this.release();
 
 	if (!this.longTapped) {
-		this.tap();
+		var tapDiff = Date.now() - this.lastTap;
+		this.tap(e);
+		if (tapDiff < DOUBLE_TAP_TIMEOUT) {
+			this.doubleTap(e);
+			return;
+		}
 	}
 };
 
